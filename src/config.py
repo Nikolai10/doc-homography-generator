@@ -3,8 +3,8 @@ class Config:
     # dataset generation props
     target_dims = (384, 256)
     shift = 100
-    mat_imgs = 'imgs.mat'
-    mat_corners = 'corners.mat'
+    mat_imgs = 'imgs_25K.mat'
+    mat_corners = 'corners_25K.mat'
     key_imgs = 'all_imgs'
     key_corners = 'all_corners'
     mode_p = 0.7

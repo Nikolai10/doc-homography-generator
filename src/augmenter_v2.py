@@ -160,7 +160,7 @@ class AugmenterV2:
                 print('Error at image: {}; skip'.format(random_img_nm))
 
             # show progress
-            sys.stdout.write("PID: {} --- \r{} %".format(pid, (i/chunksize)*100))
+            sys.stdout.write("PID: {} --- \r{}% ".format(pid, (i/chunksize)*100))
             sys.stdout.flush()
 
         queue.put([all_imgs, all_corners])
@@ -186,7 +186,7 @@ class AugmenterV2:
 
         # photometric transformation
         warped_image = self.augmentPhotometric(warped_image)
-        warped_image = cv2.cvtColor(warped_image,  cv2.COLOR_RGBA2RGB)
+        warped_image = cv2.cvtColor(warped_image,  cv2.COLOR_BGRA2BGR)
         return warped_image, y
 
     def augmentPerspective(self, img, mode):
@@ -197,7 +197,7 @@ class AugmenterV2:
         :param mode:        mode == 0: no outliers
         :return:
         """
-        img = cv2.cvtColor(img,  cv2.COLOR_RGB2RGBA)
+        img = cv2.cvtColor(img,  cv2.COLOR_BGR2BGRA)
         height, width, _ = img.shape
 
         # generate random offsets
@@ -228,7 +228,7 @@ class AugmenterV2:
 
         # preprocessing
         background = self.scale_image(background)
-        background = cv2.cvtColor(background,  cv2.COLOR_RGB2RGBA)
+        background = cv2.cvtColor(background,  cv2.COLOR_BGR2BGRA)
 
         # compute random crop
         h, w, _ = background.shape

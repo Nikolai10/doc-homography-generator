@@ -26,7 +26,8 @@ class TestAugmenter(TestCase):
 
     def test_augmentDataset(self):
         """generate dataset"""
-        self.augmenter.augmentDataset_master(max=10000, mode_p=0.7)
+        # adjust params in config.py before running script
+        self.augmenter.augmentDataset_master(max=25000, mode_p=0.7)
 
     #----------------------------------------------------------------------------------------------------
     #                                       Uncomment to Test Components                                #
@@ -106,7 +107,7 @@ class TestAugmenter(TestCase):
         random_background = backgrounds[randint(0, len(backgrounds)-1)]
 
         random_patch = self.augmenter.augmentBackground(random_background)
-        random_patch = cv2.cvtColor(random_patch,  cv2.COLOR_RGB2RGBA)
+        random_patch = cv2.cvtColor(random_patch,  cv2.COLOR_BGR2BGRA)
 
         plt.imshow(random_patch)
         plt.show()
@@ -146,7 +147,7 @@ class TestAugmenter(TestCase):
 
         # generate random background
         random_patch = self.augmenter.augmentBackground(random_background)
-        random_patch = cv2.cvtColor(random_patch,  cv2.COLOR_RGB2RGBA)
+        random_patch = cv2.cvtColor(random_patch,  cv2.COLOR_BGR2BGRA)
 
         # perspective transformation
         img = cv2.imread(self.input + random_img_nm)

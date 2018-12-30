@@ -147,7 +147,7 @@ class AugmenterV1:
         :param mode:        mode == 0: no outliers
         :return:
         """
-        img = cv2.cvtColor(img,  cv2.COLOR_RGB2RGBA)
+        img = cv2.cvtColor(img,  cv2.COLOR_BGR2BGRA)
         height, width, _ = img.shape
 
         # generate random offsets
@@ -178,7 +178,7 @@ class AugmenterV1:
 
         # preprocessing
         background = self.scale_image(background)
-        background = cv2.cvtColor(background,  cv2.COLOR_RGB2RGBA)
+        background = cv2.cvtColor(background,  cv2.COLOR_BGR2BGRA)
 
         # compute random crop
         h, w, _ = background.shape
