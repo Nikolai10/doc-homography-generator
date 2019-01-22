@@ -1,63 +1,51 @@
 from __future__ import division
 
-import os
 import cv2
 import numpy as np
 from random import randint
 import math
 import random
 from imgaug import augmenters as iaa
+from dataConfig import DataConfig
+import os
 from scipy.io import savemat
 import multiprocessing
 from multiprocessing import Queue
 import sys
-from config import Config
 
-from data_utils import warp_image
+from dataUtils import warp_image
 
 
-class AugmenterV2:
+class DataProducer:
     """
-    ============================================ Multi Core (fast) ============================================
 
     Synthetic Dataset Generation (for recovering homography and measure overall OCR-performance)
-    Benchmark: 48.431s for 1000 imgs (merging of results in queue could be further optimized...)
-        available camera-based datasets are:
-        - CBDAR 2007
-        - CBDAR 2011
-        - SmartDoc-QA
-        - DocUNet Dataset
 
-        However, these datasets either contain very few images or have very limited amount of variability in
-        their images
-
-        Dataset requirements:
-        - perspective distorted images
-        - background noise
-        - (OCR GT)
-        - (folded and curved documents)
-        - different document image size
 
     this class follows the approach described in "Recovering Homography from Camera Captured Documents using
     Convolutional Neural Networks (2017)" to synthesize an evaluation dataset.
+
+    generate a set of training samples
+
     """
 
-    def __init__(self, input, output, backgrounds, target_dims = Config.target_dims, shift=Config.shift,
-                 mat_imgs = Config.mat_imgs, mat_corners = Config.mat_corners, key_imgs = Config.key_imgs,
-                 key_corners = Config.key_corners):
+    def __init__(self, input, output, backgrounds, target_dims = DataConfig.target_dims, shift=DataConfig.shift,
+                 p=DataConfig.mode_p, mat_imgs = DataConfig.mat_imgs, mat_corners = DataConfig.mat_corners,
+                 key_imgs = DataConfig.key_imgs, key_corners = DataConfig.key_corners):
 
         """
-        Init params
+        init params
 
-        :param input:           directory of document images (as pdf)
-        :param output:          directory where to store generate dataset (as mat file)
-        :param backgrounds:     directory containing background images (e.g. DTD dataset)
-        :param target_dims:     image dimension of generated sample
-        :param shift:           max abs corner displacement (4pts form a homography)
-        :param mat_imgs:        mat file name of generated images
-        :param mat_corners:     mat file name of generated corners
-        :param key_imgs:        key name of images
-        :param key_corners:     key name of corners
+        :param input:
+        :param output:
+        :param backgrounds:
+        :param target_dims:
+        :param shift:
+        :param p:
+        :param mat_imgs:
+        :param mat_corners:
+        :param key_imgs:
+        :param key_corners:
         """
 
         self.input = input
@@ -65,13 +53,13 @@ class AugmenterV2:
         self.backgrounds = backgrounds
         self.target_dims = target_dims
         self.shift = shift
+        self.p = p
         self.mat_imgs = mat_imgs
         self.mat_corners = mat_corners
         self.key_imgs = key_imgs
         self.key_corners = key_corners
 
-
-    def augmentDataset_master(self, max=10, mode_p=Config.mode_p):
+    def augmentDataset_master(self, max=10, normalize=True, grayscale=False):
         """
         Master Generator: divides and distributes workload in equal chunks on different processes
         Number of used processes is dynamically determined by os.cpu_count()
@@ -97,7 +85,8 @@ class AugmenterV2:
 
         # init parallel procs
         for i in range(n_cores):
-            p = multiprocessing.Process(target=self.augmentDataset_slave, args=(int(workload[i]), shared_queue, mode_p))
+            p = multiprocessing.Process(target=self.augmentDataset_slave, args=(int(workload[i]), shared_queue,
+                                                                                normalize, grayscale))
             p.start()
             procs.append(p)
 
@@ -119,14 +108,12 @@ class AugmenterV2:
         savemat(self.output + self.mat_imgs, all_imgs_dict, oned_as='row')
         savemat(self.output + self.mat_corners, all_corners_dict, oned_as='row')
 
-
-    def augmentDataset_slave(self, chunksize, queue, p):
+    def augmentDataset_slave(self, chunksize, queue, normalize, grayscale):
         """
         Generate image corpus (size=chunksize) (single core implementation)
 
         :param chunksize:           amount of images to generate
         :param queue:               write results back to queue
-        :param p:                   probability for mode 0 (all img corners within frame)
         :return:
         """
         pid = os.getpid()
@@ -137,6 +124,8 @@ class AugmenterV2:
         # get name list of document images and backgrounds
         doc_imgs = os.listdir(self.input)
         backgrounds = os.listdir(self.backgrounds)
+
+        h, w = self.target_dims
 
         for i in range(chunksize):
             # retrieve random document image + background
@@ -149,8 +138,17 @@ class AugmenterV2:
                 img = cv2.resize(img, (self.target_dims[1], self.target_dims[0]))
 
                 # augment sample (p % for mode 0)
-                mode = np.random.choice(np.array([0, 1]), p=[p,1-p])
+                mode = np.random.choice(np.array([0, 1]), p=[self.p,1-self.p])
                 warped_image, y = self.augmentSample(img=img, mode=mode, background=random_background)
+
+                # produce grayscale image
+                if grayscale:
+                    warped_image = cv2.cvtColor(warped_image,  cv2.COLOR_BGR2GRAY)
+                    warped_image = np.reshape(warped_image, (h, w, 1))
+
+                # normalize (more sophisticated methods can be added later)
+                if normalize:
+                    warped_image = warped_image/np.array(255.0).astype(np.float16) # minimize memory consumption
 
                 # update arrays
                 all_imgs.append(warped_image)
@@ -259,7 +257,7 @@ class AugmenterV2:
         # apply gamma correction using the lookup table
         return cv2.LUT(image, table)
 
-    def augmentPhotometric(self, image, sigma=Config.sigma, scale=Config.scale, gamma=Config.gamma):
+    def augmentPhotometric(self, image, sigma=DataConfig.sigma, scale=DataConfig.scale, gamma=DataConfig.gamma):
         """
         add photometric augmentations to image
 

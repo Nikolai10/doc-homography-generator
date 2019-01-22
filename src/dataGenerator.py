@@ -1,119 +1,104 @@
 from __future__ import division
 
-import os
 import cv2
 import numpy as np
 from random import randint
 import math
 import random
 from imgaug import augmenters as iaa
-from scipy.io import savemat
-import sys
+from dataConfig import DataConfig
+import os
+import matplotlib.pyplot as plt
 
-from data_utils import warp_image
-from config import Config
+from dataUtils import warp_image
 
-class AugmenterV1:
+
+class DataGenerator:
     """
-    ============================================ Single Core (slow) ============================================
 
-    Benchmark: 121.096s for 1000 imgs
     Synthetic Dataset Generation (for recovering homography and measure overall OCR-performance)
 
-        available camera-based datasets are:
-        - CBDAR 2007
-        - CBDAR 2011
-        - SmartDoc-QA
-        - DocUNet Dataset
-
-        However, these datasets either contain very few images or have very limited amount of variability in
-        their images
-
-        Dataset requirements:
-        - perspective distorted images
-        - background noise
-        - (OCR GT)
-        - (folded and curved documents)
-        - different document image size
 
     this class follows the approach described in "Recovering Homography from Camera Captured Documents using
     Convolutional Neural Networks (2017)" to synthesize an evaluation dataset.
+
+    optimized for using keras: fit_generator()
+    ref: https://keras.io/models/sequential/
+
     """
 
-    def __init__(self, input, output, backgrounds, target_dims = Config.target_dims, shift=Config.shift,
-                 mat_imgs = Config.mat_imgs, mat_corners = Config.mat_corners, key_imgs = Config.key_imgs,
-                 key_corners = Config.key_corners):
+    def __init__(self, input, backgrounds, target_dims = DataConfig.target_dims, shift=DataConfig.shift, p=DataConfig.mode_p):
 
         """
         Init params
 
         :param input:           directory of document images (as pdf)
-        :param output:          directory where to store generate dataset (as mat file)
         :param backgrounds:     directory containing background images (e.g. DTD dataset)
         :param target_dims:     image dimension of generated sample
         :param shift:           max abs corner displacement (4pts form a homography)
-        :param mat_imgs:        mat file name of generated images
-        :param mat_corners:     mat file name of generated corners
-        :param key_imgs:        key name of images
-        :param key_corners:     key name of corners
+        :param p:               high p -> high chance for no outliers (perspective distortion)
         """
 
         self.input = input
-        self.output = output
         self.backgrounds = backgrounds
         self.target_dims = target_dims
         self.shift = shift
-        self.mat_imgs = mat_imgs
-        self.mat_corners = mat_corners
-        self.key_imgs = key_imgs
-        self.key_corners = key_corners
+        self.p = p
 
-    def augmentDataset(self, max=10):
+    def generator(self, batch_size, normalize=True, grayscale=False):
         """
-        Generate whole dataset (single core implementation)
+        gernerate training samples using yield (memory efficient implementation)
 
-        :param max:         max images to generate
+
+        :param batch_size:      training samples to generate in one batch
+        :param normalize:       if True, divide image by 255 -> [0, 1]
         :return:
         """
-        all_imgs, all_corners = [], []
-        all_imgs_dict, all_corners_dict = {}, {}
-
         # get name list of document images and backgrounds
         doc_imgs = os.listdir(self.input)
         backgrounds = os.listdir(self.backgrounds)
 
-        for i in range(max):
-            # retrieve random document image + background
-            random_img_nm = doc_imgs[randint(0, len(doc_imgs)-1)]
-            random_background = backgrounds[randint(0, len(backgrounds)-1)]
-            print(random_background)
-            try:
-                # read document image and resize to target size
+        h, w = self.target_dims
+
+        # generate empty arrays
+        if grayscale:
+            batch_X = np.zeros((batch_size, h, w, 1), dtype=np.uint8)
+        else:
+            batch_X = np.zeros((batch_size, h, w, 3), dtype=np.uint8)
+
+        batch_Y = np.zeros((batch_size, 8))
+
+        while True:
+            for i in range(batch_size):
+
+                # retrieve random document image + background
+                random_img_nm = doc_imgs[randint(0, len(doc_imgs)-1)]
+                random_background = backgrounds[randint(0, len(backgrounds)-1)]
+
+                # read document image and resize to target size (might involve stretching)
                 img = cv2.imread(self.input + random_img_nm)
                 img = cv2.resize(img, (self.target_dims[1], self.target_dims[0]))
+                height, width, _ = img.shape
 
-                # augment sample
-                mode = np.random.choice(np.array([0, 1]), p=[Config.mode_p, 1-Config.mode_p])
+                # augment sample (p % for mode 0)
+                mode = np.random.choice(np.array([0, 1]), p=[self.p,1-self.p])
                 warped_image, y = self.augmentSample(img=img, mode=mode, background=random_background)
 
-                # update arrays
-                all_imgs.append(warped_image)
-                all_corners.append(y)
+                # produce grayscale image
+                if grayscale:
+                    warped_image = cv2.cvtColor(warped_image,  cv2.COLOR_BGR2GRAY)
+                    warped_image = np.reshape(warped_image, (h, w, 1))
 
-            except ValueError:
-                print('Error at image: {}; skip'.format(random_img_nm))
+                # normalize (more sophisticated methods can be added later)
+                if normalize:
+                    warped_image = warped_image/np.array(255.0).astype(np.float16) # minimize memory consumption
 
-            # show progress
-            sys.stdout.write("\r{0} %".format((float(i)/max)*100))
-            sys.stdout.flush()
+                # store
+                batch_X[i] = warped_image
+                batch_Y[i] = y
 
-        # convert to dict
-        all_imgs_dict.update({self.key_imgs : np.array(all_imgs)})
-        all_corners_dict.update({self.key_corners : np.array(all_corners)})
-
-        # write to mat file
-        savemat(self.output + self.mat_imgs, all_imgs_dict, oned_as='row')
-        savemat(self.output + self.mat_corners, all_corners_dict, oned_as='row')
+            # produce next batch
+            yield batch_X, batch_Y
 
     def augmentSample(self, img, mode, background):
         """
@@ -124,7 +109,6 @@ class AugmenterV1:
         :param background:
         :return:
         """
-
         # perspective transformation
         warped_image, y = self.augmentPerspective(img, mode)
 
@@ -137,6 +121,7 @@ class AugmenterV1:
 
         # photometric transformation
         warped_image = self.augmentPhotometric(warped_image)
+        warped_image = cv2.cvtColor(warped_image,  cv2.COLOR_BGRA2BGR)
         return warped_image, y
 
     def augmentPerspective(self, img, mode):
@@ -170,7 +155,7 @@ class AugmenterV1:
         gifs removed: vestibul2_gif.jpg; conferencerm2_gif.jpg
         Total unique image: 853 (how to extend -> simply add raw images to res/backgrounds)
 
-        :param backgrounds:     resources dir
+        :param random_background:     random_background image
         :return:
         """
         # read random image
@@ -209,7 +194,7 @@ class AugmenterV1:
         # apply gamma correction using the lookup table
         return cv2.LUT(image, table)
 
-    def augmentPhotometric(self, image, sigma=Config.sigma, scale=Config.scale, gamma=Config.gamma):
+    def augmentPhotometric(self, image, sigma=DataConfig.sigma, scale=DataConfig.scale, gamma=DataConfig.gamma):
         """
         add photometric augmentations to image
 

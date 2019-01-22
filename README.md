@@ -78,10 +78,10 @@ the scripts provided in /src/data_utils.py
     src
         ├── unit_tests                  # unit tests demonstrating functionality
             ├── ...
-        ├── augmenter_v1.py             # Data Synthesis using one Single core (slow)
-        ├── augmenter_v2.py             # Data Synthesis using multiprocessing (fast)
-        ├── config.py                   # all config params of data synthesis
-        ├── data_utils.py               # helper methods       
+        ├── dataGenerator.py            # Data Synthesis optimized for Keras fit_generator()
+        ├── dataProducer.py             # Data Synthesis using multiprocessing (fixed set)
+        ├── dataConfig.py               # all config params of data synthesis
+        ├── dataUtils.py                # helper methods       
     requirements.txt                    # dependencies (Python2.7) 
 
 ## 5. Usage

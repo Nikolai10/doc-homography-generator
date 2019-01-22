@@ -2,33 +2,80 @@ from unittest import TestCase
 
 import matplotlib.pyplot as plt
 import numpy as np
-import cv2
+
+from dataGenerator import DataGenerator
+from dataUtils import *
 from random import randint
-import os
-
-from data_utils import warp_image
-from src.augmenter_v2 import AugmenterV2
-
 
 class TestAugmenter(TestCase):
 
     target_dims = (384, 256)
 
     input = '../../res/input/'
-    output = '../../res/output/'
     backgrounds = '../../res/backgrounds/'
 
-    augmenter = AugmenterV2(input, output, backgrounds)
+    dataGenerator = DataGenerator(input, backgrounds)
 
     #----------------------------------------------------------------------------------------------------
-    #                                           Generate 100 samples                                    #
+    #                                              Test Generator                                       #
     #----------------------------------------------------------------------------------------------------
 
-    def test_augmentDataset(self):
-        """generate dataset"""
-        # adjust params in config.py before running script
-        self.augmenter.augmentDataset_master(max=25000, mode_p=0.7)
+    # rgb generation
+    def test_generatorRGB(self):
+        """test python generator"""
+        # adjust params in dataConfig.py before running script
+        batch_size = 16
+        gen = self.dataGenerator.generator(batch_size, normalize=False, grayscale=False)
 
+        # get e.g. first element
+        images, corners = next(gen)
+        assert(len(images) == batch_size)
+        image, corner = images[0], corners[0]
+
+        # unwarp
+        pts_src = np.reshape(corner, (4, 2))
+        # retrieve image height and width
+        h, w, _ = image.shape
+
+        pts_dst = np.array([[0, 0], [w, 0], [w, h], [0, h]], dtype = 'float32')
+        dewarped_image = warp_image(image, pts_src, pts_dst)
+
+        # visualize
+        fig, ax = plt.subplots(nrows=1, ncols=2)
+        ax[0].imshow(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+        ax[1].imshow(cv2.cvtColor(dewarped_image, cv2.COLOR_BGR2RGB))
+        plt.show()
+
+    '''
+    # grayscale generation
+    def test_generatorGray(self):
+        """test python generator"""
+        # adjust params in dataConfig.py before running script
+        batch_size = 16
+        gen = self.dataGenerator.generator(batch_size, normalize=False, grayscale=True)
+
+        # get e.g. first element
+        images, corners = next(gen)
+        image, corner = images[0], corners[0]
+
+        # reshape (just for visualization)
+        h, w, _ = image.shape
+        image = np.reshape(image, (h, w))
+
+        # unwarp
+        pts_src = np.reshape(corner, (4, 2))
+        # retrieve image height and width
+        h, w = image.shape
+
+        pts_dst = np.array([[0, 0], [w, 0], [w, h], [0, h]], dtype = 'float32')
+        dewarped_image = warp_image(image, pts_src, pts_dst)
+
+        # visualize
+        fig, ax = plt.subplots(nrows=1, ncols=2)
+        ax[0].imshow(image, cmap='gray')
+        ax[1].imshow(dewarped_image, cmap='gray')
+        plt.show()
+    '''
     #----------------------------------------------------------------------------------------------------
     #                                       Uncomment to Test Components                                #
     #----------------------------------------------------------------------------------------------------
@@ -52,7 +99,7 @@ class TestAugmenter(TestCase):
 
         # augment sample (p % for mode 0)
         mode = np.random.choice(np.array([0, 1]), p=[p,1-p])
-        warped_image, y = self.augmenter.augmentSample(img=img, mode=mode, background=random_background)
+        warped_image, y = self.dataGenerator.augmentSample(img=img, mode=mode, background=random_background)
 
         fig, ax = plt.subplots(nrows=1, ncols=3)
 
@@ -84,7 +131,7 @@ class TestAugmenter(TestCase):
         height, width, _ = img.shape
 
         fig, ax = plt.subplots(nrows=1, ncols=3)
-        warped_image, y = self.augmenter.augmentPerspective(img, mode=0)
+        warped_image, y = self.dataGenerator.augmentPerspective(img, mode=0)
         print(y)
         ax[0].imshow(img)
         ax[1].imshow(warped_image)
@@ -106,7 +153,7 @@ class TestAugmenter(TestCase):
         backgrounds = os.listdir(self.backgrounds)
         random_background = backgrounds[randint(0, len(backgrounds)-1)]
 
-        random_patch = self.augmenter.augmentBackground(random_background)
+        random_patch = self.dataGenerator.augmentBackground(random_background)
         random_patch = cv2.cvtColor(random_patch,  cv2.COLOR_BGR2BGRA)
 
         plt.imshow(random_patch)
@@ -127,7 +174,7 @@ class TestAugmenter(TestCase):
         img = cv2.resize(img, (self.target_dims[1], self.target_dims[0]))
         height, width, _ = img.shape
 
-        aug_image = self.augmenter.augmentPhotometric(img)
+        aug_image = self.dataGenerator.augmentPhotometric(img)
 
 
         fig, ax = plt.subplots(nrows=1, ncols=2)
@@ -146,14 +193,14 @@ class TestAugmenter(TestCase):
         random_img_nm = doc_imgs[randint(0, len(doc_imgs)-1)]
 
         # generate random background
-        random_patch = self.augmenter.augmentBackground(random_background)
+        random_patch = self.dataGenerator.augmentBackground(random_background)
         random_patch = cv2.cvtColor(random_patch,  cv2.COLOR_BGR2BGRA)
 
         # perspective transformation
         img = cv2.imread(self.input + random_img_nm)
         img = cv2.resize(img, (self.target_dims[1], self.target_dims[0]))
         height, width, _ = img.shape
-        warped_image, y = self.augmenter.augmentPerspective(img, randint(0, 1))
+        warped_image, y = self.dataGenerator.augmentPerspective(img, randint(0, 1))
 
         # boolean mask of alpha channel -> replace with background patch
         idx_transparent = warped_image == [0, 0, 0, 0]
