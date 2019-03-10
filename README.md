@@ -93,3 +93,7 @@ the scripts provided in /src/data_utils.py
     augmenter.augmentDataset_master(max=100, mode_p=0.7)
 
 For more information: see src/unit_tests
+
+## License
+
+![DocHomographyGenerator_license](LICENSE)
