@@ -9,7 +9,7 @@ Convolutional Neural Networks (2017)](https://arxiv.org/abs/1709.03524)
 
 Beside the possibility of generating an arbitrarily large dataset (see DataProducer), DocHomography Generator also allows
 to be used as Python generator (see DataGenerator), where data is only generated batch-by-batch. This is in particular useful, when the dataset is too big to fit into memory (Big Data). For example, in order to train a model using
-a python generator, one can use the fit_generator() provided by Keras.
+a python generator, one can use the [fit_generator()](https://keras.io/models/sequential/)-method provided by Keras.
 
 distorted document images:
 ![Application Overview](/doc/DocHomography.png)
