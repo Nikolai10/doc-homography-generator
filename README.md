@@ -8,10 +8,14 @@ based on [Recovering Homography from Camera Captured Documents using
 Convolutional Neural Networks (2017)](https://arxiv.org/abs/1709.03524)
 
 distorted document images:
-![Application Overview](/doc/DocHomography.png)
+<p align="center">
+  <img width="80%" height="80%" src=/doc/DocHomography.png>
+</p>
 
 dewarped document images (first row):
-![Application Overview INV](/doc/dewarpedDocImages.png)
+<p align="center">
+  <img width="80%" height="80%" src=/doc/dewarpedDocImages.png>
+</p>
 
 ## 1. Introduction
 
@@ -40,11 +44,11 @@ where corners are outside the image boundaries.
 all generated images will only have included corners.
 
 <p align="center">
-  <img width="70%" height="70%" src=/doc/dataAugmPipe.png>
+  <img width="80%" height="80%" src=/doc/dataAugmPipe.png>
 </p>
 
 <p align="center">
-  <img width="70%" height="70%" src=/doc/dataAugmPipe2.png>
+  <img width="80%" height="80%" src=/doc/dataAugmPipe2.png>
 </p>
 
 Dataset Format (stored as .mat file):
@@ -55,17 +59,17 @@ Dataset Format (stored as .mat file):
 Beside the possibility of generating an arbitrarily large dataset (see DataProducer), DocHomography Generator also allows to be used as Python generator (see DataGenerator), where data is only generated batch-by-batch. This is in particular useful, when the dataset is too big to fit into memory (Big Data). For example, in order to train a model using a python generator, one can use the [fit_generator()](https://keras.io/models/sequential/)-method provided by Keras.
 
 ## 3. Setup
-
-Install dependencies
-
-    pip install -r requirements.txt
-    
 1. Download textures or background images (e.g. from [DTD](https://www.robots.ox.ac.uk/~vgg/data/dtd/) or 
 [MIT Indoor scenes dataset](http://web.mit.edu/torralba/www/indoor.html)) into res/backgrounds as collection of images 
 (remove intermediate folders).
 
 2. Insert Pdf images (as PNG) into /res/input as collection of images; **Note:** to convert PDFs to PNGs, one can use 
 the scripts provided in /src/data_utils.py 
+
+3. Install dependencies (using pip)
+``` 
+    pip install -r requirements.txt
+``` 
 
 ## 4. File Structure
 
