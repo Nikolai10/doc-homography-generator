@@ -35,11 +35,11 @@ An alternative way of computing H, is the 4pts method (see chapter findHomograph
 The following figures demonstrate the generation process of some sample images.
 
 <p align="center">
-  <img width="80%" height="80%" src=/doc/dataAugmPipe.png>
+  <img width="90%" height="90%" src=/doc/dataAugmPipe.png>
 </p>
 
 <p align="center">
-  <img width="80%" height="80%" src=/doc/dataAugmPipe2.png>
+  <img width="90%" height="90%" src=/doc/dataAugmPipe2.png>
 </p>
 
 **Note**: 
